@@ -77,11 +77,8 @@ int main( int argc, char** argv )
 	
 	ERROR_CHECK( oroInit( 0 ) );
 
-	const int deviceIndex = getDeviceIndex( argc, argv );
-	if( !checkDeviceIndex( deviceIndex ) )
+	if( !acquireDevice( argc, argv, device ) )
 		return OROCHI_TEST_RETCODE__ERROR;
-	printf( "using device %d\n", deviceIndex );
-	ERROR_CHECK( oroDeviceGet( &device, deviceIndex ) );
 
 	static constexpr auto name_size = 128;
 	char name[name_size];

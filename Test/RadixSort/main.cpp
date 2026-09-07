@@ -22,6 +22,7 @@
 
 #include <Orochi/Orochi.h>
 #include <Test/Common.h>
+#include "../../UnitTest/demoErrorCodes.h"
 
 #include <Orochi/GpuMemory.h>
 #include <Orochi/OrochiUtils.h>
@@ -313,11 +314,8 @@ int main( int argc, char** argv )
 	oroError e;
 	e = oroInit( 0 );
 	oroDevice device;
-	const int deviceIndex = getDeviceIndex( argc, argv );
-	if( !checkDeviceIndex( deviceIndex ) )
-		return 1;
-	printf( ">> using device %d\n", deviceIndex );
-	e = oroDeviceGet( &device, deviceIndex );
+	if( !acquireDevice( argc, argv, device ) )
+		return OROCHI_TEST_RETCODE__ERROR;
 	oroCtx ctx;
 	e = oroCtxCreate( &ctx, 0, device );
 
