@@ -32,12 +32,45 @@ local function orochiPlatformSettings()
     orochiApplyCuew()
 end
 
+-- Windows has no rpath, so the HIP runtime DLLs are staged next to the
+-- binaries. Attached to Orochi because every executable links it, which makes
+-- the copy happen regardless of which projects the workspace builds.
+local function stageWindowsRuntimeDlls()
+    local contribBinDir = path.join(orochiRoot, "contrib/bin/win64")
+    if not os.isdir(contribBinDir) then
+        return
+    end
+    filter "system:windows"
+        postbuildcommands { "{COPYDIR} %[" .. contribBinDir .. "] \"%{cfg.targetdir}\"" }
+    filter {}
+end
+
 -- Call from a consuming project to compile and link against Orochi.
+-- The wranglers are named explicitly because premake does not propagate a
+-- static library's own links to its consumers; order matters for GNU ld.
 function useOrochi()
     externalincludedirs { orochiRoot }
-    links { "Orochi" }
+    links { "Orochi", "cuew", "hipew" }
     orochiPlatformSettings()
 end
+
+-- Vendored wranglers live in their own projects so `warnings "Off"` applies at
+-- project scope: premake's per-file `warnings` is honoured only by the Visual
+-- Studio exporter, so a file filter would leave GCC/Clang unsilenced.
+project "cuew"
+    kind "StaticLib"
+    location "%{wks.location}/contrib/cuew"
+    warnings "Off"
+    includedirs { orochiRoot }
+    files { path.join(orochiRoot, "contrib/cuew/**.h"), path.join(orochiRoot, "contrib/cuew/**.cpp") }
+    orochiApplyCuew()
+
+project "hipew"
+    kind "StaticLib"
+    location "%{wks.location}/contrib/hipew"
+    warnings "Off"
+    includedirs { orochiRoot }
+    files { path.join(orochiRoot, "contrib/hipew/**.h"), path.join(orochiRoot, "contrib/hipew/**.cpp") }
 
 project "Orochi"
     kind "StaticLib"
@@ -47,8 +80,8 @@ project "Orochi"
     includedirs { orochiRoot }
 
     files { path.join(orochiRoot, "Orochi/**.h"), path.join(orochiRoot, "Orochi/**.cpp") }
-    files { path.join(orochiRoot, "contrib/cuew/**.h"),  path.join(orochiRoot, "contrib/cuew/**.cpp") }
-    files { path.join(orochiRoot, "contrib/hipew/**.h"), path.join(orochiRoot, "contrib/hipew/**.cpp") }
+
+    links { "cuew", "hipew" }
 
     orochiPlatformSettings()
 
@@ -56,3 +89,4 @@ project "Orochi"
     -- The pattern stays script-relative: `files:` filters match against paths
     -- resolved from this script, and an absolute pattern matches nothing.
     silenceVendoredWarnings("../contrib/**")
+    stageWindowsRuntimeDlls()
