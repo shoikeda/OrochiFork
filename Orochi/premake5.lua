@@ -8,18 +8,6 @@ local orochiRoot = path.getabsolute("..", _SCRIPT_DIR)
 -- Runs the CUDA SDK detection once; orochiApplyCuew() is callable afterwards.
 include(path.join(orochiRoot, "Orochi/enable_cuew"))
 
--- Kept local rather than reusing the workspace helper so this script stays
--- usable on its own. The Ninja generator ignores per-file `warnings`, so the
--- flag is also passed explicitly; MSVC is left to `warnings` alone because /w
--- on top of /W* emits an override diagnostic.
-local function silenceVendoredWarnings(pattern)
-    filter { "files:" .. pattern }
-        warnings "Off"
-    filter { "files:" .. pattern, "not toolset:msc-v*" }
-        buildoptions { "-w" }
-    filter {}
-end
-
 -- Applied to Orochi itself and re-applied to every consumer by useOrochi(),
 -- so both sides agree on OROCHI_ENABLE_CUEW and the CUDA include path.
 local function orochiPlatformSettings()
@@ -84,9 +72,4 @@ project "Orochi"
     links { "cuew", "hipew" }
 
     orochiPlatformSettings()
-
-    -- Silence vendored CUEW/HIPEW so --warning=extra targets only our sources.
-    -- The pattern stays script-relative: `files:` filters match against paths
-    -- resolved from this script, and an absolute pattern matches nothing.
-    silenceVendoredWarnings("../contrib/**")
     stageWindowsRuntimeDlls()

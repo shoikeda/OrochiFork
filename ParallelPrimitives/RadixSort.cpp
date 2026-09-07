@@ -36,12 +36,13 @@
 #include <ParallelPrimitives/cache/KernelArgs.h>
 // clang-format on
 #else
-// if Kernels.h / KernelArgs.h are not included, declare nullptr strings
-static const char* hip_RadixSortKernels = nullptr;
+// if Kernels.h / KernelArgs.h are not included, declare nullptr strings.
+// Only the discarded if-constexpr branch names these, so they are never emitted.
+[[maybe_unused]] static const char* hip_RadixSortKernels = nullptr;
 namespace hip
 {
-static const char** RadixSortKernelsArgs = nullptr;
-static const char** RadixSortKernelsIncludes = nullptr;
+[[maybe_unused]] static const char** RadixSortKernelsArgs = nullptr;
+[[maybe_unused]] static const char** RadixSortKernelsIncludes = nullptr;
 } // namespace hip
 #endif
 
@@ -52,7 +53,8 @@ static const char** RadixSortKernelsIncludes = nullptr;
 #if defined( ORO_PRECOMPILED ) && defined( ORO_PP_LOAD_FROM_STRING )
 #include <ParallelPrimitives/cache/oro_compiled_kernels.h> // generate this header with 'convert_binary_to_array.py'
 #else
-const unsigned char oro_compiled_kernels_h[] = "";
+// Same as above: named only by the discarded if-constexpr branch, never emitted.
+[[maybe_unused]] const unsigned char oro_compiled_kernels_h[] = "";
 const size_t oro_compiled_kernels_h_size = 0;
 const size_t oro_compiled_kernels_h_size_uncompressed = 0;
 const bool oro_compiled_kernels_h_isCompressed = false;
