@@ -262,12 +262,12 @@ void importPpExternalMemory(void **ppPtr, oroExternalMemory &ppMem,
 	VkExternalMemoryHandleTypeFlagBits handleType) {
 	oroExternalMemoryHandleDesc externalMemoryHandleDesc = {};
 
-	if (handleType & VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT) {
+	if (handleType & VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT) {
 		externalMemoryHandleDesc.type = oroExternalMemoryHandleTypeOpaqueWin32;
 	} else if (handleType &
-		VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT) {
+		VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT) {
 		externalMemoryHandleDesc.type = oroExternalMemoryHandleTypeOpaqueWin32Kmt;
-	} else if (handleType & VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT) {
+	} else if (handleType & VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT) {
 		externalMemoryHandleDesc.type = oroExternalMemoryHandleTypeOpaqueFd;
 	} else {
 		throw std::runtime_error("Unknown handle type requested!");
@@ -297,19 +297,18 @@ static std::string AppName = "App";
 static std::string EngineName = "Engine";
 
 int main(int argc, char **argv) {
-	int32_t localSize = 8;
+	uint32_t localSize = 8;
 	size_t memorySize = localSize * localSize * sizeof(float);
 	oroApi api = getApiType( argc, argv );
-	int a = oroInitialize(api, 0);
-	oroError e;
-	e = oroInit(0);
+	oroInitialize(api, 0);
+	oroInit(0);
 	oroDevice device;
 	if( !acquireDevice( argc, argv, device ) )
 		return OROCHI_TEST_RETCODE__ERROR;
 	oroCtx ctx;
-	e = oroCtxCreate(&ctx, 0, device);
+	oroCtxCreate(&ctx, 0, device);
 	oroDeviceProp props;
-	e = oroGetDeviceProperties(&props, device);
+	oroGetDeviceProperties(&props, device);
 	try {
 		vk::raii::Context context;
 		vk::ApplicationInfo applicationInfo(AppName.c_str(), 1, EngineName.c_str(),
@@ -326,9 +325,9 @@ int main(int argc, char **argv) {
 				physicalDevicePCIBusInfoProperties =
 				physicalDeviceProperties
 				.get<vk::PhysicalDevicePCIBusInfoPropertiesEXT>();
-			if (physicalDevicePCIBusInfoProperties.pciDomain == props.pciDomainID &&
-				physicalDevicePCIBusInfoProperties.pciBus == props.pciBusID &&
-				physicalDevicePCIBusInfoProperties.pciDevice == props.pciDeviceID) {
+			if (physicalDevicePCIBusInfoProperties.pciDomain == static_cast<uint32_t>(props.pciDomainID) &&
+				physicalDevicePCIBusInfoProperties.pciBus == static_cast<uint32_t>(props.pciBusID) &&
+				physicalDevicePCIBusInfoProperties.pciDevice == static_cast<uint32_t>(props.pciDeviceID)) {
 				physicalDeviceIndex = i;
 				break;
 			}

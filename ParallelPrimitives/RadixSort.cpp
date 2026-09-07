@@ -96,7 +96,7 @@ constexpr auto useBakeKernel = false;
 static_assert( !( useBitCode && useBakeKernel ), "useBitCode and useBakeKernel cannot coexist" );
 
 #if !defined( __GNUC__ )
-const HMODULE GetCurrentModule()
+HMODULE GetCurrentModule()
 {
 	HMODULE hModule = NULL;
 	// hModule is NULL if GetModuleHandleEx fails.

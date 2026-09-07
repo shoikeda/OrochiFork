@@ -8,7 +8,7 @@ project "simpleD3D12"
 
     useOrochi()
     linkWin32SystemLibs()
-    includedirs { "./" }
+    externalincludedirs { "./" }
 
     files {
         "DX12OroSample.cpp",

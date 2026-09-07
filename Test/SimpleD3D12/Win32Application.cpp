@@ -64,7 +64,7 @@ int Win32Application::Run(DX12OroSample* pSample, HINSTANCE hInstance,
   LocalFree(argv);
 
   // Initialize the window class.
-  WNDCLASSEX windowClass = {0};
+  WNDCLASSEX windowClass = {};
   windowClass.cbSize = sizeof(WNDCLASSEX);
   windowClass.style = CS_HREDRAW | CS_VREDRAW;
   windowClass.lpfnWndProc = WindowProc;

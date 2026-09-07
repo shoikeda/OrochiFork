@@ -92,7 +92,9 @@ class DX12OroInterop : public DX12OroSample {
   oroCtx gOroContext;
   oroExternalMemory gOroExtMem;
   oroExternalSemaphore gOroExtSem;
+#ifdef USE_STREAM
   oroStream  gOroStream;
+#endif
   oroDeviceptr gOroDevPtr;
 
   LUID m_dx12deviceluid;

@@ -868,6 +868,9 @@ inline static cudaError_t oroStreamGetCaptureInfoV2Compat( cudaStream_t stream, 
 #undef hipStreamWaitValueGte
 #undef hipStreamWaitValueNor
 
+// Orochi implements the deprecated HIP entry points too, so the header's own
+// opt-out is used instead of tagging every call site.
+#define HIP_ENABLE_DEPRECATED
 #include "nvidia_hip_runtime_api_oro.h"
 #include "nvidia_hiprtc_oro.h"
 #endif

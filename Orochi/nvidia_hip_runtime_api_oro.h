@@ -869,34 +869,38 @@ typedef struct HIP_RESOURCE_DESC_st
     unsigned int flags;                          /**< Flags (must be zero) */
 } HIP_RESOURCE_DESC;
 
-static inline CUDA_RESOURCE_DESC* hipResourceDesTocudaResourceDes(const HIP_RESOURCE_DESC* p){
-    CUDA_RESOURCE_DESC a;
+// Fills a caller-owned descriptor: returning the address of a local would dangle.
+static inline void hipResourceDesTocudaResourceDes(CUDA_RESOURCE_DESC* a, const HIP_RESOURCE_DESC* p){
     switch (p->resType) {
         case HIP_RESOURCE_TYPE_ARRAY:
-            a.resType = CU_RESOURCE_TYPE_ARRAY;
+            a->resType = CU_RESOURCE_TYPE_ARRAY;
+            break;
         case HIP_RESOURCE_TYPE_MIPMAPPED_ARRAY:
-            a.resType = CU_RESOURCE_TYPE_MIPMAPPED_ARRAY;
+            a->resType = CU_RESOURCE_TYPE_MIPMAPPED_ARRAY;
+            break;
         case HIP_RESOURCE_TYPE_LINEAR:
-            a.resType = CU_RESOURCE_TYPE_LINEAR;
+            a->resType = CU_RESOURCE_TYPE_LINEAR;
+            break;
         case HIP_RESOURCE_TYPE_PITCH2D:
-            a.resType = CU_RESOURCE_TYPE_PITCH2D;
+            a->resType = CU_RESOURCE_TYPE_PITCH2D;
+            break;
         default:
-            a.resType = CU_RESOURCE_TYPE_ARRAY;
+            a->resType = CU_RESOURCE_TYPE_ARRAY;
+            break;
     }
-    a.res.array.hArray = (CUarray)p->res.array.hArray;
-    a.res.mipmap.hMipmappedArray = (CUmipmappedArray)p->res.mipmap.hMipmappedArray;
-    a.res.linear.devPtr = p->res.linear.devPtr;
-    a.res.linear.format = p->res.linear.format;
-    a.res.linear.numChannels = p->res.linear.numChannels;
-    a.res.linear.sizeInBytes = p->res.linear.sizeInBytes;
-    a.res.pitch2D.devPtr = p->res.pitch2D.devPtr;
-    a.res.pitch2D.numChannels = p->res.pitch2D.numChannels;
-    a.res.pitch2D.format = p->res.pitch2D.format;
-    a.res.pitch2D.width = p->res.pitch2D.width;
-    a.res.pitch2D.height = p->res.pitch2D.height;
-    a.res.pitch2D.pitchInBytes = p->res.pitch2D.pitchInBytes;
-    a.flags = p->flags;
-    return &a;
+    a->res.array.hArray = (CUarray)p->res.array.hArray;
+    a->res.mipmap.hMipmappedArray = (CUmipmappedArray)p->res.mipmap.hMipmappedArray;
+    a->res.linear.devPtr = p->res.linear.devPtr;
+    a->res.linear.format = p->res.linear.format;
+    a->res.linear.numChannels = p->res.linear.numChannels;
+    a->res.linear.sizeInBytes = p->res.linear.sizeInBytes;
+    a->res.pitch2D.devPtr = p->res.pitch2D.devPtr;
+    a->res.pitch2D.numChannels = p->res.pitch2D.numChannels;
+    a->res.pitch2D.format = p->res.pitch2D.format;
+    a->res.pitch2D.width = p->res.pitch2D.width;
+    a->res.pitch2D.height = p->res.pitch2D.height;
+    a->res.pitch2D.pitchInBytes = p->res.pitch2D.pitchInBytes;
+    a->flags = p->flags;
 }
 
 typedef struct hip_Memcpy2D {
@@ -2377,7 +2381,7 @@ inline static hipError_t hipMemcpyParam2D_cu4oro(const hip_Memcpy2D* pCopy) {
   if(pCopy == NULL) {
     return hipCUResultTohipError(cuMemcpy2D(NULL));
   } else {
-    CUDA_MEMCPY2D cudaCopy = {0};
+    CUDA_MEMCPY2D cudaCopy = {};
     hipMemcpy2DTocudaMemcpy2D(&cudaCopy, pCopy);
     return hipCUResultTohipError(cuMemcpy2D((const CUDA_MEMCPY2D*)&cudaCopy));
   }
@@ -2387,7 +2391,7 @@ inline static hipError_t hipMemcpyParam2DAsync_cu4oro(const hip_Memcpy2D* pCopy,
   if(pCopy == NULL) {
     return hipCUResultTohipError(cuMemcpy2DAsync(NULL, stream));
   } else {
-    CUDA_MEMCPY2D cudaCopy = {0};
+    CUDA_MEMCPY2D cudaCopy = {};
     hipMemcpy2DTocudaMemcpy2D(&cudaCopy, pCopy);
     return hipCUResultTohipError(cuMemcpy2DAsync((const CUDA_MEMCPY2D*)&cudaCopy, stream));
   }
@@ -2405,7 +2409,7 @@ inline static hipError_t hipDrvMemcpy3D_cu4oro(const HIP_MEMCPY3D* pcopy) {
     if(pcopy == NULL) {
       return hipCUResultTohipError(cuMemcpy3D(NULL));
     } else {
-      CUDA_MEMCPY3D cudaCopy = {0};
+      CUDA_MEMCPY3D cudaCopy = {};
       hipMemcpy3DTocudaMemcpy3D(&cudaCopy, pcopy);
       return hipCUResultTohipError(cuMemcpy3D((const CUDA_MEMCPY3D*)&cudaCopy));
     }
@@ -2415,7 +2419,7 @@ inline static hipError_t hipDrvMemcpy3DAsync_cu4oro(const HIP_MEMCPY3D *pcopy, h
     if(pcopy == NULL) {
       return hipCUResultTohipError(cuMemcpy3DAsync(NULL, stream));
     } else {
-      CUDA_MEMCPY3D cudaCopy = {0};
+      CUDA_MEMCPY3D cudaCopy = {};
       hipMemcpy3DTocudaMemcpy3D(&cudaCopy, pcopy);
       return hipCUResultTohipError(cuMemcpy3DAsync((const CUDA_MEMCPY3D*)&cudaCopy, stream));
     }
@@ -3179,7 +3183,7 @@ inline static hipError_t hipDrvPointerGetAttributes_cu4oro(unsigned int numAttri
                                                     void** data, hipDeviceptr_t ptr) {
     hipError_t err = hipCUResultTohipError(cuPointerGetAttributes(numAttributes, attributes, data, ptr));
     if (err == hipSuccess && attributes != NULL) {
-        for(int i = 0; i < numAttributes; i++) {
+        for(unsigned int i = 0; i < numAttributes; i++) {
           if(attributes[i] == HIP_POINTER_ATTRIBUTE_MEMORY_TYPE) {
             *((uint32_t**) data)[i] = getHipMemoryType(*((CUmemorytype**) data)[i]);
             break;

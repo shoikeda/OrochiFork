@@ -5,5 +5,5 @@ project "VulkanComputeSimple"
 
     useOrochi()
     linkWin32SystemLibs()
-    includedirs { "./" }
+    externalincludedirs { "./" }
     files { "*.cpp" }

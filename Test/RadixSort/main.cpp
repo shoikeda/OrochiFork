@@ -56,7 +56,7 @@ using u32 = Oro::RadixSort::u32;
 class SortTest
 {
   public:
-	SortTest( oroDevice dev, oroCtx ctx, OrochiUtils& oroutils ) : m_device( dev ), m_ctx( ctx ), m_sort( dev, oroutils ) {}
+	SortTest( oroDevice dev, OrochiUtils& oroutils ) : m_sort( dev, oroutils ) {}
 
 	template<bool KEY_VALUE_PAIR = true>
 	void test( int testSize, const int testBits = 32, const int nRuns = 1 )
@@ -260,11 +260,11 @@ class SortTest
 
 		const auto check = [&]( const size_t i ) noexcept { return dstKeys[i] != numbers[i] || dstValues[i] != values[i]; };
 
-		for( int i = 0; i < size; ++i )
+		for( size_t i = 0; i < size; ++i )
 		{
 			if( check( i ) )
 			{
-				printf( "fail at %d\n", i );
+				printf( "fail at %zu\n", i );
 				__debugbreak();
 				break;
 			}
@@ -282,8 +282,6 @@ class SortTest
 	}
 
   private:
-	oroDevice m_device;
-	oroCtx m_ctx;
 	Oro::RadixSort m_sort;
 };
 
@@ -311,13 +309,12 @@ int main( int argc, char** argv )
 	printf( ">> executing on %s\n", ( api == ORO_API_HIP ) ? "hip" : "cuda" );
 
 	printf( ">> testing initialization\n" );
-	oroError e;
-	e = oroInit( 0 );
+	oroInit( 0 );
 	oroDevice device;
 	if( !acquireDevice( argc, argv, device ) )
 		return OROCHI_TEST_RETCODE__ERROR;
 	oroCtx ctx;
-	e = oroCtxCreate( &ctx, 0, device );
+	oroCtxCreate( &ctx, 0, device );
 
 	printf( ">> testing device props\n" );
 	{
@@ -329,7 +326,7 @@ int main( int argc, char** argv )
 	}
 
 	OrochiUtils oroutils;
-	SortTest sort( device, ctx, oroutils );
+	SortTest sort( device, oroutils );
 	const int testBits = 32;
 	switch( testType )
 	{

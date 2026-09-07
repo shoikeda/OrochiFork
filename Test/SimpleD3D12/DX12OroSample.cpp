@@ -57,7 +57,7 @@ The MIT License (MIT)
 using namespace Microsoft::WRL;
 
 DX12OroSample::DX12OroSample(UINT width, UINT height, std::string name)
-    : m_width(width), m_height(height), m_title(name), m_useWarpDevice(false) {
+    : m_width(width), m_height(height), m_useWarpDevice(false), m_title(name) {
   m_aspectRatio = static_cast<float>(width) / static_cast<float>(height);
 }
 
@@ -81,7 +81,7 @@ std::wstring DX12OroSample::GetAssetFullPath(const char* assetName) {
   if (tmp == NULL) {
     throw std::exception("File not found");
   }
-  for (int i = 0; i < strlen(tmp); i++) {
+  for (size_t i = 0; i < strlen(tmp); i++) {
     if (tmp[i] == '/') {
       tmp[i] = '\\';
     }
