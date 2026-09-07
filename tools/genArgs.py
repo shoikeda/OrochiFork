@@ -7,66 +7,69 @@ of argument file references for runtime kernel compilation.
 Usage:
     python3 genArgs.py <kernel_header.h>
 """
-import os
+import argparse
 import sys
+from pathlib import Path
+from typing import Final
+
+# Every baked kernel targets HIP; the CL/Metal variants this script once
+# branched on have no inputs anywhere in the tree.
+_API: Final = "hip"
 
 
-def gen_args(filename, api, includes):
-    """Parse a kernel header and emit argument array declarations."""
-    with open(filename) as f:
-        base_name = os.path.basename(filename).split('.')[0]
+def gen_args(path: Path, out: list[str], includes: list[str]) -> None:
+    """Emit the argument array for one kernel header, collecting its includes."""
+    base_name = path.stem
 
-        print('#if !defined(ORO_PP_LOAD_FROM_STRING)')
-        print('\tstatic const char** ' + base_name + 'Args = 0;')
-        print('#else')
-        print('\tstatic const char* ' + base_name + 'Args[] = {')
+    out.append("#if !defined(ORO_PP_LOAD_FROM_STRING)")
+    out.append(f"\tstatic const char** {base_name}Args = 0;")
+    out.append("#else")
+    out.append(f"\tstatic const char* {base_name}Args[] = {{")
 
-        includes += base_name + 'Includes[] = {'
+    includes.append(f"{base_name}Includes[] = {{")
 
-        for line in f.readlines():
-            line = line.strip('\r\n')
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if "#include" not in line:
+            continue
+        # Inlined sources are pulled in textually, and quoted includes are not
+        # separate compile units, so neither becomes an argument entry.
+        if f"inl.{_API}" in line or '"' in line:
+            continue
+        # Guards against '#include' appearing in a comment or macro.
+        if "<" not in line or ">" not in line:
+            continue
 
-            if '#include' not in line:
-                continue
-            if '#include' in line and 'inl.' + api in line:
-                continue
-            if api in ('cl', 'metal') and '.cu' in line:
-                continue
-            if '"' in line and '#include' in line:
-                continue
+        included = line.split("<")[1].split(">")[0]
+        includes.append(f'"{included}",')
+        name = Path(included).name.split(f".{_API}")[0].split(".h")[0]
+        out.append(f"{_API}_{name},")
 
-            header = os.path.basename(line.split('<')[1].split('>')[0])
-            includes += '"' + line.split('<')[1].split('>')[0] + '",'
-            name = header.split('.' + api)[0]
-            name = name.split('.h')[0]
-            name = api + '_' + name
-            print(name + ',')
-
-        print(api + '_' + base_name + '};')
-        print('#endif')
-
-    return includes
+    out.append(f"{_API}_{base_name}}};")
+    out.append("#endif")
 
 
-def main():
-    if len(sys.argv) < 2:
-        print(f"Usage: {sys.argv[0]} <kernel_header.h>", file=sys.stderr)
-        sys.exit(1)
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Generate a kernel argument header.")
+    parser.add_argument("kernel_header", type=Path, help="kernel header to scan")
+    args = parser.parse_args()
 
-    files = [sys.argv[1]]
-    api = 'hip'
+    if not args.kernel_header.is_file():
+        print(f"error: no such file: {args.kernel_header}", file=sys.stderr)
+        return 1
 
-    print('#pragma once')
-    print('namespace ' + api + ' {')
+    out: list[str] = ["#pragma once", f"namespace {_API} {{"]
+    includes: list[str] = ["static const char* "]
 
-    includes = 'static const char* '
-    for source_file in files:
-        includes = gen_args(source_file, api, includes)
-    includes += '};'
+    gen_args(args.kernel_header, out, includes)
+    includes.append("};")
 
-    print(includes)
-    print('}\t//namespace ' + api)
+    out.append("".join(includes))
+    out.append(f"}}\t//namespace {_API}")
+
+    sys.stdout.reconfigure(encoding="utf-8")
+    print("\n".join(out))
+    return 0
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    sys.exit(main())

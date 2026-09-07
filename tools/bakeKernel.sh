@@ -4,10 +4,24 @@
 
 set -e
 
-echo "// automatically generated, don't edit" > ParallelPrimitives/cache/Kernels.h
-echo "// automatically generated, don't edit" > ParallelPrimitives/cache/KernelArgs.h
+# Every path below is relative to the repository root, resolved from this
+# script's own location so the bake works from any working directory.
+cd "$(dirname "$0")/.."
 
-python3 tools/stringify.py ./ParallelPrimitives/RadixSortKernels.h  >> ParallelPrimitives/cache/Kernels.h
-python3 tools/genArgs.py ./ParallelPrimitives/RadixSortKernels.h  >> ParallelPrimitives/cache/KernelArgs.h
+CACHE=ParallelPrimitives/cache
+HEADER="// automatically generated, don't edit"
 
-python3 tools/stringify.py ./ParallelPrimitives/RadixSortConfigs.h  >> ParallelPrimitives/cache/Kernels.h
+# Built under .tmp and moved into place only on success, so an aborted run
+# cannot leave a truncated header that a later ORO_PP_LOAD_FROM_STRING build
+# would happily include.
+trap 'rm -f "$CACHE/Kernels.h.tmp" "$CACHE/KernelArgs.h.tmp"' EXIT
+
+echo "$HEADER" > "$CACHE/Kernels.h.tmp"
+echo "$HEADER" > "$CACHE/KernelArgs.h.tmp"
+
+python3 tools/stringify.py ./ParallelPrimitives/RadixSortKernels.h >> "$CACHE/Kernels.h.tmp"
+python3 tools/genArgs.py   ./ParallelPrimitives/RadixSortKernels.h >> "$CACHE/KernelArgs.h.tmp"
+python3 tools/stringify.py ./ParallelPrimitives/RadixSortConfigs.h >> "$CACHE/Kernels.h.tmp"
+
+mv "$CACHE/Kernels.h.tmp"    "$CACHE/Kernels.h"
+mv "$CACHE/KernelArgs.h.tmp" "$CACHE/KernelArgs.h"

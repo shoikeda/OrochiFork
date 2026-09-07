@@ -6,70 +6,99 @@ for use with precompiled kernel loading.
 import json
 import subprocess
 import sys
+from pathlib import Path
+from typing import Final
+
 from enumArch import enumArch
 
+# Resolved from this file rather than the working directory, so the script can
+# be run from anywhere.
+_SCRIPTS: Final = Path(__file__).resolve().parent
+_ROOT: Final = _SCRIPTS.parent
 
-def get_gpu_list():
+_KERNELS: Final = _ROOT / "ParallelPrimitives" / "RadixSortKernels.h"
+_OUTPUT_DIR: Final = _ROOT / "bitcodes"
+
+_MIN_ARCH: Final = "gfx900"
+
+
+def get_gpu_list() -> dict[str, list[str]]:
     """Load the AMD GPU list from the JSON configuration file."""
-    with open("amdGpuList.json") as f:
-        return json.load(f)
+    return json.loads((_SCRIPTS / "amdGpuList.json").read_text(encoding="utf-8"))
 
 
-def get_amd_arches(min_arch):
+def get_amd_arches(min_arch: str) -> list[str]:
     """Return the AMD arches to build, falling back to the JSON list."""
     arches = enumArch(min_arch)
     if not arches:
-        print("architecture enumeration unavailable; falling back to amdGpuList.json")
+        print(
+            "architecture enumeration unavailable; falling back to amdGpuList.json",
+            file=sys.stderr,
+        )
         arches = get_gpu_list()["amd"]
     return arches
 
 
-def compile_kernels(target_index):
-    """Compile kernels for the specified target (0=AMD/HIP, 1=NVIDIA/CUDA)."""
-    if target_index == 0:
+def build_command(target: str) -> list[str]:
+    """Build the compiler command line for 'hipcc' or 'nvcc'."""
+    if target == "hipcc":
         command = [
             "hipcc",
             "-x", "hip",
-            "../ParallelPrimitives/RadixSortKernels.h",
+            str(_KERNELS),
             "-O3", "-std=c++17", "-ffast-math",
             "--cuda-device-only", "--genco",
-            "-I../", "-include", "hip/hip_runtime.h",
-            "-parallel-jobs=15"
+            f"-I{_ROOT}", "-include", "hip/hip_runtime.h",
+            "-parallel-jobs=15",
         ]
-        for arch in get_amd_arches("gfx900"):
-            command.append("--offload-arch=" + arch)
-        command += ["-o", "../bitcodes/oro_compiled_kernels.hipfb"]
-    else:
-        command = [
-            "nvcc",
-            "-x", "cu",
-            "../ParallelPrimitives/RadixSortKernels.h",
-            "-O3", "-std=c++17", "--use_fast_math",
-            "-fatbin", "-arch=all",
-            "-I../", "-include", "cuda_runtime.h",
-            "-o", "../bitcodes/oro_compiled_kernels.fatbin"
-        ]
+        command += [f"--offload-arch={arch}" for arch in get_amd_arches(_MIN_ARCH)]
+        command += ["-o", str(_OUTPUT_DIR / "oro_compiled_kernels.hipfb")]
+        return command
 
-    print(" ".join(command))
-
-    return subprocess.Popen(command)
+    return [
+        "nvcc",
+        "-x", "cu",
+        str(_KERNELS),
+        "-O3", "-std=c++17", "--use_fast_math",
+        "-fatbin", "-arch=all",
+        f"-I{_ROOT}", "-include", "cuda_runtime.h",
+        "-o", str(_OUTPUT_DIR / "oro_compiled_kernels.fatbin"),
+    ]
 
 
-def main():
-    targets = {0: "hipcc", 1: "nvcc"}
-    processes = [(name, compile_kernels(index)) for index, name in targets.items()]
+def main() -> int:
+    _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    failed = []
-    for name, proc in processes:
-        if proc.wait() != 0:
-            failed.append(f"{name} (exit {proc.returncode})")
+    running: list[tuple[str, subprocess.Popen[bytes]]] = []
+    failed: list[str] = []
+
+    for target in ("hipcc", "nvcc"):
+        command = build_command(target)
+        print(" ".join(command))
+        try:
+            running.append((target, subprocess.Popen(command)))
+        except OSError as exc:
+            # Recorded rather than raised, so a compiler that is present still
+            # finishes instead of being orphaned by the traceback.
+            failed.append(f"{target} ({exc.strerror or exc})")
+
+    try:
+        for target, proc in running:
+            if proc.wait() != 0:
+                failed.append(f"{target} (exit {proc.returncode})")
+    finally:
+        for _, proc in running:
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait()
 
     if failed:
         print("compile failed: " + ", ".join(failed), file=sys.stderr)
-        sys.exit(1)
+        return 1
 
     print("compile done.")
+    return 0
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    sys.exit(main())

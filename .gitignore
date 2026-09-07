@@ -70,8 +70,11 @@ compile_commands.json
 # Logs and test results
 # -----------------------------------------------------------------------------
 **/*.log
-result.xml
-tahoePy.log
+result*.xml
+
+# Python bytecode from the scripts/ and tools/ helpers
+__pycache__/
+*.py[cod]
 
 # -----------------------------------------------------------------------------
 # Project-specific caches

@@ -7,61 +7,79 @@ that can be compiled directly into the binary.
 Usage:
     python3 stringify.py <kernel_file>
 """
-import os
+import argparse
+import re
 import sys
+from pathlib import Path
+from typing import Final
+
+# Every baked kernel targets HIP; the CL/Metal variants this script once
+# branched on have no inputs anywhere in the tree.
+_API: Final = "hip"
+
+# Includes whose contents are pulled in textually instead of being compiled
+# separately. No source in the tree currently uses one.
+_INLINE_MARKERS: Final = ("inl.cl", "inl.metal", "inl.cu")
+
+_SOURCE_SUFFIXES: Final = (".cl", ".cu", ".metal", ".h")
+
+_INCLUDE_PATH: Final = re.compile(r'#include\s*[<"]([^>"]+)[>"]')
 
 
-def print_file(filename, output, api, base_dir='./'):
-    """Recursively read a kernel file, inlining includes and escaping for C++."""
-    with open(filename) as fh:
-        for line in fh.readlines():
-            line = line.strip('\r\n').strip()
+def read_lines(path: Path, base_dir: Path) -> list[str]:
+    """Read a kernel file, inlining marked includes and escaping for C++."""
+    out: list[str] = []
 
-            if line.startswith('//'):
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+
+        if line.startswith("//"):
+            continue
+
+        if any(marker in line for marker in _INLINE_MARKERS):
+            match = _INCLUDE_PATH.search(line)
+            if match:
+                # The directive is replaced by the file it names, so it must not
+                # also be emitted. Only the basename is honoured, resolved
+                # against base_dir rather than the including file's directory.
+                out.extend(read_lines(base_dir / Path(match.group(1)).name, base_dir))
                 continue
 
-            # Inline .inl includes
-            if '#include' in line and ('inl.cl' in line or 'inl.metal' in line or 'inl.cu' in line):
-                _, tail = os.path.split(line)
-                tail = base_dir + tail.replace('>', '')
-                output = print_file(tail, output, api, base_dir)
+        escaped = line.replace('"', '\\"').replace("'", "\\'")
+        out.append(f'"{escaped}\\n"')
 
-            if '#include' in line and api != 'hip':
-                continue
-
-            # Escape for C++ string literal
-            escaped = '"' + line.replace('"', '\\"').replace("'", "\\'") + '\\n"'
-            output += escaped + '\n'
-
-    return output
+    return out
 
 
-def stringify(filename, string_name, api, base_dir='./'):
-    """Convert a kernel file to a C++ string literal variable."""
-    print('static const char* ' + string_name + '= \\')
-    output = print_file(filename, '', api, base_dir)
-    print(output + ';')
+def stringify(path: Path, string_name: str, base_dir: Path) -> str:
+    """Render one kernel file as a C++ string literal variable."""
+    body = "".join(f"{line}\n" for line in read_lines(path, base_dir))
+    return f"static const char* {string_name}= \\\n{body};"
 
 
-def main():
-    if len(sys.argv) < 2:
-        print(f"Usage: {sys.argv[0]} <kernel_file>", file=sys.stderr)
-        sys.exit(1)
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Stringify a kernel source file.")
+    parser.add_argument("kernel_file", type=Path, help="kernel source to stringify")
+    args = parser.parse_args()
 
-    files = [sys.argv[1]]
-    api = 'hip'
+    source: Path = args.kernel_file
+    if not source.is_file():
+        print(f"error: no such file: {source}", file=sys.stderr)
+        return 1
+    if source.suffix not in _SOURCE_SUFFIXES:
+        print(f"error: not a kernel source: {source}", file=sys.stderr)
+        return 1
 
-    # Process Math files first, then the rest
-    for math_first in (True, False):
-        for source_file in files:
-            if ('Math.' in source_file) != math_first:
-                continue
-            if not any(ext in source_file for ext in ('.cl', '.cu', '.metal', '.h')):
-                continue
-            string_name = source_file.replace('.cl', '').replace('.cu', '').replace('.metal', '').replace('.h', '')
-            string_name = api + '_' + string_name.split('/')[-1]
-            stringify('./' + source_file, string_name, api)
+    sys.stdout.reconfigure(encoding="utf-8")
+    try:
+        rendered = stringify(source, f"{_API}_{source.stem}", Path("./"))
+    except OSError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    print(rendered)
+    return 0
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    sys.exit(main())

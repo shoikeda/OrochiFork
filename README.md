@@ -104,10 +104,11 @@ They also accept `--device <n>` (or `--device=<n>`) to select which Orochi devic
 ./dist/bin/Release/Texture64 --device 1
 ```
 
-The unit test program takes the same option, and the scripts in [`scripts/`](./scripts/) forward their arguments to it:
+The unit test program takes the same option. The scripts in [`scripts/`](./scripts/) take the build configuration as their first argument and forward everything after it to the test binary:
 
 ```
-./scripts/unittest.sh --device 1
+./scripts/unittest.sh Release --device 1
+./scripts/unittest_navi1.sh Debug --device 1
 ```
 
 The source code for the test applications can be found [here](./Test/).
