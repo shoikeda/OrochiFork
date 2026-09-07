@@ -21,7 +21,6 @@
 //
 
 #include <Orochi/OrochiUtils.h>
-#include <codecvt>
 #include <fstream>
 #include <iostream>
 #include <string.h>
@@ -40,12 +39,17 @@
 #include <contrib/zstd/lib/zstd.h>
 #endif
 
+#if defined( _WIN32 )
+// Only the wide Win32 file APIs need this, hence the Windows-only definition;
+// <codecvt> would be the portable spelling but is deprecated since C++17.
 inline std::wstring utf8_to_wstring( const std::string& str )
 {
-	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> myconv;
-	std::wstring out1 = myconv.from_bytes( str );
-	return out1;
+	const int length = MultiByteToWideChar( CP_UTF8, 0, str.c_str(), static_cast<int>( str.size() ), nullptr, 0 );
+	std::wstring out( length, L'\0' );
+	MultiByteToWideChar( CP_UTF8, 0, str.c_str(), static_cast<int>( str.size() ), out.data(), length );
+	return out;
 }
+#endif
 
 class FileStat
 {
