@@ -13,7 +13,7 @@ if /I "%CONFIG%"=="RelWithDebInfo" goto :resolved
 if /I "%CONFIG%"=="Release"        goto :resolved
 
 echo error: unknown configuration '%CONFIG%' 1>&2
-echo usage: [Debug^|DebugFast^|RelWithDebInfo^|Release] 1>&2
+echo usage: [Debug^|DebugFast^|RelWithDebInfo^|Release] [extra UnitTest args...] 1>&2
 exit /b 1
 
 :resolved

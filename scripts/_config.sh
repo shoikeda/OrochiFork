@@ -13,7 +13,7 @@ case "$CONFIG" in
         ;;
     *)
         echo "error: unknown configuration '$CONFIG'" >&2
-        echo "usage: [Debug|DebugFast|RelWithDebInfo|Release]" >&2
+        echo "usage: [Debug|DebugFast|RelWithDebInfo|Release] [extra UnitTest args...]" >&2
         exit 1
         ;;
 esac

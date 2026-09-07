@@ -1,8 +1,9 @@
 -- Enables CUEW (CUDA Extension Wrangler) when the CUDA SDK is available.
 --
--- Including this file applies the settings to the current scope, as before.
--- Because premake runs a given `include` only once, the settings are also
--- exposed as orochiApplyCuew() so every project that needs them can re-apply.
+-- Including this file only runs the detection; it applies nothing on its own,
+-- because the including scope is usually the workspace and the settings would
+-- then leak into unrelated projects. Call orochiApplyCuew() from each project
+-- that needs them (useOrochi() already does).
 
 -- Declared here, not in the workspace, so external projects that include only
 -- this file still accept --forceCuda. Guarded because a host workspace may
@@ -18,28 +19,48 @@ local function isValidPath(p)
     return p ~= nil and p ~= "" and os.isdir(p)
 end
 
--- Most preferred first.
-local cudaVersions = { "12.2" }
+-- Supported CUDA SDK majors, most preferred first. Any minor of these majors
+-- is accepted: the install directories are globbed, so a new 13.x or 12.x
+-- release is picked up without editing this list.
+local cudaMajors = { 13, 12 }
 
-local function findCudaVersion(version)
-    local envVar = "CUDA_PATH_V" .. version:gsub("%.", "_")
-    local candidates = {
-        os.getenv(envVar),
-        "/usr/local/cuda-" .. version,
-        "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v" .. version,
-    }
-    for _, p in ipairs(candidates) do
-        if isValidPath(p) then
-            return p
+-- Globbed with forward slashes on every host; premake normalizes them.
+local cudaInstallRoots = {
+    "/usr/local/cuda-",
+    "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v",
+}
+
+local function findCudaMajor(major)
+    -- An envvar set by the installer wins, so an SDK outside the standard
+    -- install folders is still found.
+    local fromEnv = os.getenv("CUDA_PATH_V" .. major .. "_0")
+    if isValidPath(fromEnv) then
+        return fromEnv
+    end
+
+    -- Otherwise keep the highest installed minor of this major.
+    local bestMinor = -1
+    local bestPath = nil
+    for _, root in ipairs(cudaInstallRoots) do
+        for _, dir in ipairs(os.matchdirs(root .. major .. ".*")) do
+            local minor = tonumber(dir:match("%.(%d+)$"))
+            if minor ~= nil and minor > bestMinor then
+                bestMinor = minor
+                bestPath = dir
+            end
         end
     end
-    return nil
+    return bestPath
 end
 
--- Preferred versions first, then CUDA_PATH, then the default install dir.
+local function cudaMajorsText()
+    return table.concat(cudaMajors, ".x or ") .. ".x"
+end
+
+-- Preferred majors first, then CUDA_PATH, then the default install dir.
 local cuda_path = nil
-for _, version in ipairs(cudaVersions) do
-    cuda_path = findCudaVersion(version)
+for _, major in ipairs(cudaMajors) do
+    cuda_path = findCudaMajor(major)
     if isValidPath(cuda_path) then
         break
     end
@@ -53,16 +74,17 @@ if not isValidPath(cuda_path) and os.isdir("/usr/local/cuda") then
     cuda_path = "/usr/local/cuda"
 end
 
--- Detection is reported once, at include time, rather than per project.
-if isValidPath(cuda_path) then
-    print("CUEW is enabled. CUDA SDK found: " .. cuda_path)
-    if not foundPreferredCudaVersion then
-        print("WARNING: preferred CUDA version not found (" .. table.concat(cudaVersions, ", ") .. "); using a fallback CUDA SDK install folder.")
+if _ACTION then
+    if isValidPath(cuda_path) then
+        print("CUEW is enabled. CUDA SDK found: " .. cuda_path)
+        if not foundPreferredCudaVersion then
+            print("WARNING: no supported CUDA version found (" .. cudaMajorsText() .. "); using a fallback CUDA SDK install folder.")
+        end
+    elseif _OPTIONS["forceCuda"] then
+        print("WARNING: CUEW is force-enabled but CUDA SDK not found (set CUDA_PATH). Compilation may fail.")
+    else
+        print("WARNING: CUEW disabled; CUDA SDK not found (supported: " .. cudaMajorsText() .. "). Use --forceCuda to override.")
     end
-elseif _OPTIONS["forceCuda"] then
-    print("WARNING: CUEW is force-enabled but CUDA SDK not found (set CUDA_PATH). Compilation may fail.")
-else
-    print("WARNING: CUEW disabled; CUDA SDK not found (preferred: " .. table.concat(cudaVersions, ", ") .. "). Use --forceCuda to override.")
 end
 
 -- Applies the detected CUDA settings to the current project scope.
@@ -74,5 +96,3 @@ function orochiApplyCuew()
         defines { "OROCHI_ENABLE_CUEW" }
     end
 end
-
-orochiApplyCuew()

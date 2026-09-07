@@ -38,8 +38,9 @@
 #define ORORTCCHECK( x ) { ASSERT_EQ( x , ORORTC_SUCCESS ); }
 
 
-// Orochi device index used by every test, set from the '--device <n>' command line argument.
-extern int g_deviceIndex;
+// Orochi device index used by every test, set from the '--device <n>' command line
+// argument and validated by main() before any test runs.
+inline int g_deviceIndex = 0;
 
 
 // Base class used by most of the unit test.

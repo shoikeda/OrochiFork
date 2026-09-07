@@ -47,15 +47,23 @@ int main( int argc, char** argv )
 	printf( "# of AMD devices: %d\n", nAMDDevices );
 	printf( "# of NV devices: %d\n\n", nNVIDIADevices );
 
-	// '--device <n>' restricts this Demo to a single device; without it every device is enumerated.
-	const int requestedDevice = getDeviceIndex( argc, argv, -1 );
-	if( requestedDevice >= 0 && !checkDeviceIndex( requestedDevice ) )
+	// This Demo always enumerates every device; '--device <n>' only marks one of them,
+	// so running it through the UnitTest keeps covering the whole device list.
+	// 'noDevice' means the option was absent, which marks nothing.
+	constexpr int noDevice = -1;
+	const std::optional<int> selectedDevice = getDeviceIndex( argc, argv, noDevice );
+	if( !selectedDevice )
 		return OROCHI_TEST_RETCODE__ERROR;
-	const int firstDevice = ( requestedDevice < 0 ) ? 0 : requestedDevice;
-	const int lastDevice = ( requestedDevice < 0 ) ? nDevicesTotal : requestedDevice + 1;
+	if( *selectedDevice != noDevice && !checkDeviceIndex( *selectedDevice ) )
+		return OROCHI_TEST_RETCODE__ERROR;
 
-	for( int i = firstDevice; i < lastDevice; i++ )
+	for( int i = 0; i < nDevicesTotal; i++ )
 	{
+		if( i == *selectedDevice )
+			printf( "--- device %d (selected) ---\n", i );
+		else
+			printf( "--- device %d ---\n", i );
+
 		oroDevice device;
 		e = oroDeviceGet( &device, i );
 		ERROR_CHECK( e );
