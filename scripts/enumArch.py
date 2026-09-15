@@ -14,7 +14,7 @@ def enumArch( minArch ):
 
     arches = []
     for line in lines:
-        result = re.match("\s+(gfx[0-9a-f]+).*processor.", line)
+        result = re.match(r"\s+(gfx[0-9a-f]+).*processor.", line)
         if result:
             arch = result.group(1)
             if toNumber(minArch) <= toNumber(arch):
