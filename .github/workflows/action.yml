@@ -17,6 +17,7 @@ jobs:
       run: |
         p=./tools/premake5/linux64/premake5
         $p --builddir=build/gen/clang --clang --warning=extra --werror --sanitizer=address ninja
+        $p --builddir=build/gen/bake --bakeKernel gmake
         $p --builddir=build/gen/win --os=windows vs2022
         test -f build/gen/win/YamatanoOrochi.sln
         ! $p --clang=foo gmake
